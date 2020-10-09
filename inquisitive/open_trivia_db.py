@@ -76,6 +76,18 @@ class UnknownDifficultyError(QuestionError):
     pass
 
 
+class QuestionFactoryError(OpenTriviaDbError):
+    """The base exception for exceptions thrown by the ``QuestionFactory``
+    class."""
+    pass
+
+
+class InvalidTokenError(QuestionFactoryError):
+    """A ``QuestionFactory`` instance has an invalid token (usually
+    ``None``)."""
+    pass
+
+
 @attrs(auto_attribs=True)
 class Category:
     """A question category.
@@ -234,3 +246,25 @@ def get_questions(
             Question(r['category'], unescape(r['question']), t, d, answers)
         )
     return questions
+
+
+@attrs(auto_attribs=True)
+class QuestionFactory:
+    """A class for generating questions."""
+
+    token: Optional[str] = None
+
+    def generate_token(self) -> None:
+        """Generate a token for this instance."""
+        self.token = get_token()
+
+    def get_questions(self, **kwargs) -> List[Question]:
+        """Gets questions using ``get_questions``.
+
+        There is no need to provide a token, since ``self.token`` is used.
+
+        If ``self.token`` is ``None``, ``InvalidToken`` will be raised.
+        """
+        if self.token is None:
+            raise InvalidTokenError()
+        return get_questions(self.token, **kwargs)

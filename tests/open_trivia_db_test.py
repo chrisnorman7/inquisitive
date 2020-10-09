@@ -1,7 +1,10 @@
 from typing import List
 
-from inquisitive.open_trivia_db import (Answer, Category, Question,
-                                        QuestionCount, QuestionDifficulties,
+from pytest import raises
+
+from inquisitive.open_trivia_db import (Answer, Category, InvalidTokenError,
+                                        Question, QuestionCount,
+                                        QuestionDifficulties, QuestionFactory,
                                         QuestionTypes, get_categories,
                                         get_question_count, get_questions,
                                         get_token)
@@ -75,3 +78,15 @@ def test_get_questions() -> None:
     assert isinstance(a.text, str)
     assert a.correct is False
     assert str(q) == '%s:\n%s' % (q.category_name, q.text)
+
+
+def test_question_factory() -> None:
+    f: QuestionFactory = QuestionFactory()
+    assert f.token is None
+    with raises(InvalidTokenError):
+        f.get_questions()
+    f.generate_token()
+    assert isinstance(f.token, str)
+    questions: List[Question] = f.get_questions()
+    assert isinstance(questions, list)
+    assert isinstance(questions[0], Question)
