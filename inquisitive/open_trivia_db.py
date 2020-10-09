@@ -226,10 +226,10 @@ def get_questions(
     results: List[Dict[str, Any]] = get_url(u)['results']
     questions: List[Question] = []
     for r in results:
-        answers: List[Answer] = [Answer(r['correct_answer'], True)]
+        answers: List[Answer] = [Answer(unescape(r['correct_answer']), True)]
         text: str
         for text in r['incorrect_answers']:
-            answers.append(Answer(text, False))
+            answers.append(Answer(unescape(text), False))
         t: QuestionTypes
         for t in QuestionTypes:
             if t.name == r['type']:
