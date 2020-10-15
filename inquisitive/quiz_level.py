@@ -5,7 +5,8 @@ from random import shuffle
 from typing import Callable, List, Optional
 
 from attr import attrib, attrs
-from earwax import Level, Track, hat_directions
+from earwax import Level, StaggeredPromise, Track, hat_directions
+from earwax.types import StaggeredPromiseGeneratorType
 from pyglet.window import key
 
 from . import sounds
@@ -36,9 +37,12 @@ class QuizLevel(Level):
 
     questions: List[Question]
     music_path: Path
-    question: Optional[Question] = None
-    answers: Optional[AnswerContainer] = None
-    position: int = -1
+    question: Optional[Question] = attrib(default=None, init=False)
+    answers: Optional[AnswerContainer] = attrib(default=None, init=False)
+    position: int = attrib(default=-1, init=False)
+    guess_promise: Optional[StaggeredPromise] = attrib(
+        default=None, init=False
+    )
 
     def __attrs_post_init__(self) -> None:
         self.tracks.append(
@@ -109,18 +113,36 @@ class QuizLevel(Level):
         """
 
         def inner() -> None:
-            assert self.answers is not None
-            a: Answer = self.answers.answers[i]
-            p: Path = sounds.icons.paths[
-                'correct.mp3' if a.correct else 'wrong.mp3'
-            ]
-            self.game.interface_sound_player.play_path(p)
-            ci: int = self.answers.answers.index(self.answers.correct)
-            self.game.output(
-                f'{"Correct!" if a.correct else "Sorry, but"} the answer was '
-                f'{letters[ci]}: {self.answers.correct.text}'
-            )
-            self.next_question()
+            if self.guess_promise is not None:
+                return
+
+            @StaggeredPromise.decorate
+            def promise() -> StaggeredPromiseGeneratorType:
+                assert self.answers is not None
+                try:
+                    a: Answer = self.answers.answers[i]
+                except IndexError:
+                    return  # There are not that many possible answers.
+                p: Path = sounds.icons.paths[
+                    'correct.mp3' if a.correct else 'wrong.mp3'
+                ]
+                self.game.interface_sound_player.play_path(p)
+                yield 0.5
+                ci: int = self.answers.answers.index(self.answers.correct)
+                self.game.output(
+                    f'{"Correct!" if a.correct else "Sorry, but"} '
+                    f'the answer was {letters[ci]}: '
+                    f'{self.answers.correct.text}'
+                )
+                yield 2.0
+                self.next_question()
+
+            @promise.event
+            def on_finally() -> None:
+                self.guess_promise = None
+
+            self.guess_promise = promise
+            promise.run()
 
         return inner
 
